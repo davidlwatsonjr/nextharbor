@@ -18,9 +18,13 @@ const cacheName = prefix + '${cacheVersion}';
 const assets = ${JSON.stringify(assets)};
 
 self.addEventListener('install', event => {
-  event.waitUntil(caches.open(cacheName).then(cache => cache.addAll(
-    assets.map(path => new Request(new URL(path, self.registration.scope), { cache: 'reload' })),
-  )));
+  event.waitUntil((async () => {
+    const cache = await caches.open(cacheName);
+    await cache.addAll(assets.map(path =>
+      new Request(new URL(path, self.registration.scope), { cache: 'reload' }),
+    ));
+    await self.skipWaiting();
+  })());
 });
 
 self.addEventListener('activate', event => {
@@ -38,9 +42,17 @@ self.addEventListener('fetch', event => {
   if (url.origin !== scope.origin || !url.pathname.startsWith(scope.pathname)) return;
   const path = './' + url.pathname.slice(scope.pathname.length);
   if (event.request.mode === 'navigate' && (path === './' || path === './index.html')) {
-    event.respondWith(caches.open(cacheName).then(async cache =>
-      await cache.match(new URL('./index.html', scope)) ?? fetch(event.request),
-    ));
+    event.respondWith((async () => {
+      // Ask the server for current HTML online. The precached build remains available offline.
+      try {
+        const response = await fetch(event.request, { cache: 'no-cache' });
+        if (response.ok) return response;
+      } catch {
+        // A network failure can be served by the offline cache.
+      }
+      const cache = await caches.open(cacheName);
+      return await cache.match(new URL('./index.html', scope)) ?? Response.error();
+    })());
   } else if (assets.includes(path)) {
     event.respondWith(caches.open(cacheName).then(async cache =>
       await cache.match(new URL(path, scope)) ?? fetch(event.request),

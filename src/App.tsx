@@ -139,7 +139,15 @@ export function App() {
         <div className="sidebar-footer">
           <button className={'backup-nav ' + (view === 'settings' ? 'selected' : '')} onClick={() => navigate('settings')}
             aria-current={view === 'settings' ? 'page' : undefined}><Settings2 size={17}/> Data &amp; backups</button>
-          <label className="theme-select">Appearance
+        </div>
+      </aside>
+
+      <main>
+        <header className="topbar">
+          <button className="icon-button menu-button" aria-label="Open navigation" aria-expanded={menu} onClick={() => setMenu(true)}><Menu size={24}/></button>
+          <div className="breadcrumb"><span>Workspace</span><ChevronRight size={13}/><strong>{labels[view]}</strong></div>
+          <span className="local"><i/> Stored on this device</span>
+          <label className="theme-select"><span>Appearance</span>
             <select defaultValue={document.documentElement.dataset.theme ?? 'system'} onChange={event => {
               const theme = event.target.value;
               const { dataset } = document.documentElement;
@@ -158,14 +166,6 @@ export function App() {
               <option value="dark">Dark</option>
             </select>
           </label>
-        </div>
-      </aside>
-
-      <main>
-        <header className="topbar">
-          <button className="icon-button menu-button" aria-label="Open navigation" aria-expanded={menu} onClick={() => setMenu(true)}><Menu size={24}/></button>
-          <div className="breadcrumb"><span>Workspace</span><ChevronRight size={13}/><strong>{labels[view]}</strong></div>
-          <span className="local"><i/> Stored on this device</span>
           <button className="primary capture-button" disabled={!ready} onClick={() => {
             if (view === 'inbox') captureInput.current?.focus();
             else {
