@@ -22,11 +22,17 @@ export function Editor({ item, projects, error, onClose, onSave, onArchive }: {
   const [draft, setDraft] = useState(item);
   const [action, setAction] = useState('');
   const [saving, setSaving] = useState(false);
+  const titleField = useRef<HTMLInputElement>(null);
   const dialog = useRef<HTMLDialogElement>(null);
   const clarification = item.list === 'inbox' && Boolean(onArchive);
   const movingProject = item.list === 'projects' && Boolean(onArchive);
 
-  useEffect(() => { dialog.current?.showModal(); }, []);
+  useEffect(() => {
+    const modal = dialog.current;
+    modal?.showModal();
+    if (clarification) modal?.querySelector<HTMLInputElement>('input[name="route"]')?.focus();
+    else titleField.current?.focus();
+  }, [clarification]);
 
   function change<K extends keyof Item>(field: K, value: Item[K]) {
     setDraft(current => ({ ...current, [field]: value }));
@@ -70,8 +76,8 @@ export function Editor({ item, projects, error, onClose, onSave, onArchive }: {
           {routes.filter(route => route.list !== 'projects').map(({ list }) => <option key={list} value={list}>{lists[list]}</option>)}
         </select></label>}
         <label>{draft.list === 'projects' ? 'Desired outcome' : 'Title'}
-          <input required maxLength={200} value={draft.title} onChange={event => change('title', event.target.value)}
-            placeholder={draft.list === 'projects' ? 'e.g. Publish the team onboarding guide' : 'What needs your attention?'} autoFocus />
+          <input ref={titleField} required maxLength={200} value={draft.title} onChange={event => change('title', event.target.value)}
+            placeholder={draft.list === 'projects' ? 'e.g. Publish the team onboarding guide' : 'What needs your attention?'} />
         </label>
         {draft.list === 'projects' && <label>{movingProject ? 'Add a next action' : 'First next action'} <span className="optional">optional</span>
           <input maxLength={200} value={action} onChange={event => setAction(event.target.value)} placeholder="e.g. Ask the team for feedback on the draft"/>

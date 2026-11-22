@@ -51,6 +51,10 @@ export function App() {
   const [time, setTime] = useState('');
   const [energy, setEnergy] = useState('');
   const [pendingBackup, setPendingBackup] = useState<Workspace>();
+  const heading = useRef<HTMLHeadingElement>(null);
+  const menuButton = useRef<HTMLButtonElement>(null);
+  const mobileNavigation = useRef<HTMLDialogElement>(null);
+  const editorTrigger = useRef<HTMLElement | null>(null);
   const captureInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -67,9 +71,48 @@ export function App() {
     return () => changes.removeEventListener('message', refresh);
   }, []);
 
+  function closeMenu() {
+    mobileNavigation.current?.close();
+    menuButton.current?.focus();
+  }
+
+  function openEditor(item: Item) {
+    editorTrigger.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setError('');
+    setEditor(item);
+  }
+
+  function closeEditor() {
+    setEditor(undefined);
+    setError('');
+    requestAnimationFrame(() => {
+      const trigger = editorTrigger.current;
+      if (trigger?.isConnected) trigger.focus();
+      else heading.current?.focus();
+    });
+  }
+
+  function recoverRowFocus(trigger: HTMLButtonElement, saved: boolean) {
+    if (saved) requestAnimationFrame(() => {
+      if (!trigger.isConnected && document.activeElement === document.body) heading.current?.focus();
+    });
+  }
+
+  useEffect(() => {
+    const desktop = window.matchMedia('(min-width: 811px)');
+    function handleResize() {
+      if (!desktop.matches || !mobileNavigation.current?.open) return;
+      mobileNavigation.current.close();
+      heading.current?.focus();
+    }
+    desktop.addEventListener('change', handleResize);
+    return () => desktop.removeEventListener('change', handleResize);
+  }, []);
+
   function navigate(next: View) {
     setView(next);
-    setMenu(false);
+    mobileNavigation.current?.close();
+    requestAnimationFrame(() => heading.current?.focus());
     setStatus('');
     window.scrollTo(0, 0);
   }
@@ -118,10 +161,8 @@ export function App() {
     window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
-  return (
-    <div className="layout">
-      {menu && <button className="overlay" aria-label="Close navigation" onClick={() => setMenu(false)}/>}
-      <aside className={'sidebar' + (menu ? ' expanded' : '')}>
+  const navigation = (
+    <>
         <button className="brand" onClick={() => navigate('inbox')}>
           <span className="brand-icon"><Anchor size={23}/></span>
           <span><strong>NextHarbor</strong><small>Personal workspace</small></span>
@@ -140,11 +181,28 @@ export function App() {
           <button className={'backup-nav ' + (view === 'settings' ? 'selected' : '')} onClick={() => navigate('settings')}
             aria-current={view === 'settings' ? 'page' : undefined}><Settings2 size={17}/> Data &amp; backups</button>
         </div>
-      </aside>
+    </>
+  );
 
+  return (
+    <div className="layout">
+      <a className="skip-link" href="#main-heading" onClick={event => {
+        event.preventDefault();
+        heading.current?.focus();
+      }}>Skip to main content</a>
+      <aside className="sidebar">{navigation}</aside>
+      <dialog className="mobile-navigation sidebar" id="mobile-navigation" ref={mobileNavigation}
+        aria-label="Workspace navigation" onClose={() => setMenu(false)}
+        onCancel={event => { event.preventDefault(); closeMenu(); }}
+        onClick={event => { if (event.target === event.currentTarget) closeMenu(); }}>
+        <div className="mobile-navigation-content">
+          <button className="icon-button" type="button" aria-label="Close navigation" onClick={closeMenu}><X size={21}/></button>
+          {navigation}
+        </div>
+      </dialog>
       <main>
         <header className="topbar">
-          <button className="icon-button menu-button" aria-label="Open navigation" aria-expanded={menu} onClick={() => setMenu(true)}><Menu size={24}/></button>
+          <button className="icon-button menu-button" aria-label="Open navigation" ref={menuButton} aria-controls="mobile-navigation" aria-expanded={menu} onClick={() => { mobileNavigation.current?.showModal(); setMenu(true); }}><Menu size={24}/></button>
           <div className="breadcrumb"><span>Workspace</span><ChevronRight size={13}/><strong>{labels[view]}</strong></div>
           <span className="local"><i/> Stored on this device</span>
           <label className="theme-select"><span>Appearance</span>
@@ -178,9 +236,9 @@ export function App() {
         <div className="content">
           <header className="page-heading">
             <div><p className="eyebrow"><ActiveIcon size={15}/> {groups.find(group => group.views.includes(view))?.title ?? 'Workspace'}</p>
-              <h1>{labels[view]}</h1><p>{descriptions[view]}</p></div>
+              <h1 id="main-heading" ref={heading} tabIndex={-1}>{labels[view]}</h1><p>{descriptions[view]}</p></div>
             {ready && !['inbox', 'review', 'settings', 'trash', 'completed'].includes(view) &&
-              <button className="primary" onClick={() => setEditor({ ...capture(''), list: view as List })}><Plus size={18}/> Add {view === 'projects' ? 'project' : 'item'}</button>}
+              <button className="primary" onClick={() => openEditor({ ...capture(''), list: view as List })}><Plus size={18}/> Add {view === 'projects' ? 'project' : 'item'}</button>}
           </header>
 
           {error && !editor && <div className="notice error" role="alert">{error}<button type="button" className="icon-button" onClick={() => setError('')} aria-label="Dismiss error"><X size={16}/></button></div>}
@@ -207,7 +265,7 @@ export function App() {
           {ready && view !== 'review' && view !== 'settings' && <div className={view === 'inbox' ? 'board' : ''}>
             <section className="panel" aria-label={labels[view]}>
               <div className="panel-header"><h2>{view === 'inbox' ? 'Unprocessed items' : labels[view]}</h2>
-                <span className="count">{visible.length} {visible.length === 1 ? 'item' : 'items'}</span></div>
+                <span className="count" role={view === 'next' ? 'status' : undefined}>{visible.length} {visible.length === 1 ? 'item' : 'items'}</span></div>
               {visible.length === 0 ? <div className="empty">
                 <span className="empty-icon"><ActiveIcon size={29}/></span>
                 <h3>{view === 'inbox' ? 'Your inbox is clear' : 'No items to show'}</h3>
@@ -220,9 +278,12 @@ export function App() {
                   const project = projects.find(candidate => candidate.id === item.project);
                   return <li key={item.id}>
                     {canFinish && <button className="check-button" aria-label={'Complete ' + item.title}
-                      onClick={() => void apply(previous => archiveItem(previous, item.id, 'completed'), 'Marked complete.')}><Check size={15}/></button>}
+                      onClick={async event => {
+                        const trigger = event.currentTarget;
+                        recoverRowFocus(trigger, await apply(previous => archiveItem(previous, item.id, 'completed'), 'Marked complete.'));
+                      }}><Check size={15}/></button>}
                     <div className="item-body">
-                      {archived ? <strong>{item.title}</strong> : <button className="item-title" onClick={() => setEditor(item)}>{item.title}</button>}
+                      {archived ? <strong>{item.title}</strong> : <button className="item-title" onClick={() => openEditor(item)}>{item.title}</button>}
                       {item.notes && <p>{item.notes}</p>}
                       <div className="item-meta">
                         {project && <span><Folder size={13}/>{project.title}</span>}
@@ -236,9 +297,12 @@ export function App() {
                         {archived && item.previous && <span>{lists[item.previous]}</span>}
                       </div>
                     </div>
-                    {archived ? <button className="secondary" onClick={() => void apply(previous => restoreItem(previous, item.id), 'Item restored.')}>
+                    {archived ? <button className="secondary" aria-label={'Restore ' + item.title} onClick={async event => {
+                      const trigger = event.currentTarget;
+                      recoverRowFocus(trigger, await apply(previous => restoreItem(previous, item.id), 'Item restored.'));
+                    }}>
                       <RotateCcw size={15}/> Restore</button> : <button className={view === 'inbox' ? 'secondary' : 'icon-button'}
-                      aria-label={(view === 'inbox' ? 'Clarify ' : 'Edit ') + item.title} onClick={() => setEditor(item)}>
+                      aria-label={(view === 'inbox' ? 'Clarify ' : 'Edit ') + item.title} onClick={() => openEditor(item)}>
                       {view === 'inbox' ? 'Clarify' : <Ellipsis size={20}/>}
                     </button>}
                   </li>;
@@ -266,7 +330,7 @@ export function App() {
             {lastReview && <p className="review-last">Last completed {lastReview}</p>}
             <ul className="items review-list">
               {reviewSteps.map(step => <li key={step.id}>
-                <input type="checkbox" id={'review-' + step.id} checked={workspace.review.includes(step.id)}
+                <input type="checkbox" aria-describedby={'review-detail-' + step.id} id={'review-' + step.id} checked={workspace.review.includes(step.id)}
                   onChange={event => {
                     const checked = event.target.checked;
                     void apply(previous => ({
@@ -274,8 +338,11 @@ export function App() {
                       review: checked ? [...new Set([...previous.review, step.id])] : previous.review.filter(id => id !== step.id),
                     }), 'Review progress saved.');
                   }}/>
-                <label className="item-body" htmlFor={'review-' + step.id}><strong>{step.title}</strong><p>{step.detail}</p></label>
-                <button className="secondary" onClick={() => navigate(step.list)}>Open {lists[step.list]}</button>
+                <div className="item-body">
+                  <label htmlFor={'review-' + step.id}><strong>{step.title}</strong></label>
+                  <p id={'review-detail-' + step.id}>{step.detail}</p>
+                </div>
+                <button className="secondary" aria-label={'Open ' + lists[step.list] + ' for ' + step.title} onClick={() => navigate(step.list)}>Open {lists[step.list]}</button>
               </li>)}
             </ul>
             <div className="review-footer"><button className="primary" disabled={!reviewSteps.every(step => workspace.review.includes(step.id))}
@@ -287,7 +354,7 @@ export function App() {
             <p>Your data lives in this browser. Export a backup before clearing site data or switching browsers. An import replaces the current workspace.</p>
             <div className="settings-actions">
               <button className="primary" onClick={exportBackup}><Download size={17}/> Export backup</button>
-              <label className="secondary file-button"><Upload size={17}/> Choose backup
+              <label className="backup-picker"><Upload size={17}/> Choose backup
                 <input type="file" accept=".json,application/json" onChange={async event => {
                   const file = event.target.files?.[0];
                   event.target.value = '';
@@ -313,7 +380,7 @@ export function App() {
         </div>
       </main>
       {editor && <Editor key={editor.id} item={editor} projects={projects.filter(item => item.list === 'projects' || item.id === editor.project)}
-        error={error} onClose={() => { setEditor(undefined); setError(''); }}
+        error={error} onClose={closeEditor}
         onSave={(item, action) => apply(previous => putItem(previous, item, action), 'Item saved.')}
         onArchive={workspace.items.some(item => item.id === editor.id) ? (destination, edits) =>
           apply(previous => archiveItem(edits ? putItem(previous, edits) : previous, editor.id, destination), destination === 'trash' ? 'Moved to Trash.' : 'Marked complete.') : undefined}/>}
