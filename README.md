@@ -10,6 +10,16 @@ A browser-local workspace built around David Allen’s Getting Things Done metho
 
 The app stores a versioned workspace in IndexedDB. Changes are transactional. There are no accounts, servers, external assets, or synchronization between devices in this version. Export and import JSON under **Data & backups**. Imports replace the workspace after confirmation. Moving to another domain, port, or browser gives you a separate workspace. Offline use on a hosted origin starts after a successful first load and service-worker activation.
 
+## Install NextHarbor
+
+Open [NextHarbor](https://nextharbor.davidlwatsonjr.com/) while online.
+
+- **Chrome on Android:** Open Chrome’s menu and choose **Add to home screen → Install**.
+- **Safari on iPhone or iPad:** Open **Share → Add to Home Screen**.
+- **Desktop Chrome or Edge:** Use the install icon in the address bar or the browser’s install menu.
+
+NextHarbor opens in a standalone window. Once the service worker has finished caching the app, you can open it and use your locally stored workspace offline.
+
 ## Run locally
 
 Node 22 or newer.

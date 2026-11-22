@@ -26,10 +26,12 @@ jobs:
       - run: npm test
       - run: npm run build
       - run: npm run verify:offline
-      - name: Install Chromium for accessibility tests
+      - name: Install Chromium for browser tests
         run: npx playwright install --with-deps chromium
       - name: Run accessibility tests
         run: npm run test:a11y
+      - name: Verify PWA installability and offline launch
+        run: npm run test:pwa
       - uses: actions/configure-pages@v5
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
       - uses: actions/upload-pages-artifact@v3

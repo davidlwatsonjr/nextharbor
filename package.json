@@ -12,7 +12,8 @@
     "preview": "vite preview",
     "test": "node --disable-warning=ExperimentalWarning --experimental-strip-types --test src/gtd.test.ts",
     "verify:offline": "node scripts/verify-offline.mjs",
-    "test:a11y": "playwright test"
+    "test:a11y": "playwright test tests/accessibility.spec.ts",
+    "test:pwa": "playwright test tests/pwa.spec.ts"
   },
   "dependencies": {
     "lucide-react": "^0.468.0",
