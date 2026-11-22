@@ -136,8 +136,29 @@ export function App() {
             })}
           </section>)}
         </nav>
-        <button className={'backup-nav ' + (view === 'settings' ? 'selected' : '')} onClick={() => navigate('settings')}
-          aria-current={view === 'settings' ? 'page' : undefined}><Settings2 size={17}/> Data &amp; backups</button>
+        <div className="sidebar-footer">
+          <button className={'backup-nav ' + (view === 'settings' ? 'selected' : '')} onClick={() => navigate('settings')}
+            aria-current={view === 'settings' ? 'page' : undefined}><Settings2 size={17}/> Data &amp; backups</button>
+          <label className="theme-select">Appearance
+            <select defaultValue={document.documentElement.dataset.theme ?? 'system'} onChange={event => {
+              const theme = event.target.value;
+              const { dataset } = document.documentElement;
+              if (theme === 'system') delete dataset.theme;
+              else dataset.theme = theme;
+
+              try {
+                if (theme === 'system') localStorage.removeItem('nextharbor.theme');
+                else localStorage.setItem('nextharbor.theme', theme);
+              } catch {
+                // The current selection still applies for this session.
+              }
+            }}>
+              <option value="system">System</option>
+              <option value="light">Light</option>
+              <option value="dark">Dark</option>
+            </select>
+          </label>
+        </div>
       </aside>
 
       <main>
